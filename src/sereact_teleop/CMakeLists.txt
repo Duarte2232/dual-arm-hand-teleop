@@ -26,5 +26,12 @@ endif()
 install(DIRECTORY urdf launch config
   DESTINATION share/${PROJECT_NAME}
 )
+find_package(ament_cmake_python REQUIRED)
 
+ament_python_install_package(sereact_teleop)
+
+install(PROGRAMS
+  sereact_teleop/ik_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 ament_package()
