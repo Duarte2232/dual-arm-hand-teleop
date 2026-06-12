@@ -199,7 +199,7 @@
   </link>
   <!-- base_joint fixes base_link to the environment -->
   <joint name="left_base_joint" type="fixed">
-    <origin rpy="0 0 1.5708" xyz="0 -0.75 0"/>
+    <origin rpy="0 0 1.5708" xyz="0 -0.5 0"/>
     <parent link="world"/>
     <child link="left_base_link"/>
   </joint>
@@ -682,7 +682,7 @@
   </link>
   <!-- base_joint fixes base_link to the environment -->
   <joint name="right_base_joint" type="fixed">
-    <origin rpy="0 0 -1.5708" xyz="0 0.75 0"/>
+    <origin rpy="0 0 -1.5708" xyz="0 0.5 0"/>
     <parent link="world"/>
     <child link="right_base_link"/>
   </joint>
