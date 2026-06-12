@@ -41,7 +41,12 @@ class IKNode(Node):
                                  'left_wrist_2_joint', 
                                  'left_wrist_3_joint',
                                  'left_robotiq_85_left_knuckle_joint',
-                                 'left_robotiq_85_right_knuckle_joint']
+                                'left_robotiq_85_right_knuckle_joint',
+                                'left_robotiq_85_left_inner_knuckle_joint',
+                                'left_robotiq_85_right_inner_knuckle_joint',
+                                'left_robotiq_85_left_finger_tip_joint',
+                                'left_robotiq_85_right_finger_tip_joint'
+                            ]
         
         self.joint_names_right = [
             'right_shoulder_pan_joint',
@@ -51,38 +56,64 @@ class IKNode(Node):
             'right_wrist_2_joint',
             'right_wrist_3_joint',
             'right_robotiq_85_left_knuckle_joint',
-            'right_robotiq_85_right_knuckle_joint'
-        ]
+            'right_robotiq_85_right_knuckle_joint',
+            'right_robotiq_85_left_inner_knuckle_joint',
+            'right_robotiq_85_right_inner_knuckle_joint',
+            'right_robotiq_85_left_finger_tip_joint',
+            'right_robotiq_85_right_finger_tip_joint'
+         ]
 
         
         initial_target_left = [0.3, -0.5, 0.5]
         initial_target_right = [0.3, 0.5, 0.5]
         self.joint_angles_left = self.left_chain.inverse_kinematics(initial_target_left)
+        self.joint_angles_left = np.clip(
+            self.joint_angles_left, 
+            -2*np.pi, 
+            2*np.pi
+            )
         self.joint_angles_right = self.right_chain.inverse_kinematics(initial_target_right)
+        self.joint_angles_right = np.clip(
+            self.joint_angles_right, 
+            -2*np.pi, 
+            2*np.pi
+        )
         self.prev_joint_angles_left = self.joint_angles_left.copy()
         self.prev_joint_angles_right = self.joint_angles_right.copy()
+
+        self.left_gripper = 0.0
+        self.right_gripper = 0.0
          # Timer — solve and publish at 50Hz
         self.create_timer(0.05, self.timer_callback)
 
 
     def left_target_callback(self, msg):
         self.prev_joint_angles_left = self.joint_angles_left.copy()
+        self.joint_angles_left = np.clip(self.joint_angles_left, -2*np.pi, 2*np.pi)
         target = [msg.position.x, msg.position.y, msg.position.z]
+      
         self.joint_angles_left = self.left_chain.inverse_kinematics(
             target, 
-            target_orientation=[0, 0, -1],
-            orientation_mode="Y",
+            target_orientation=[0, 0, 1],
+            orientation_mode="Z",
             initial_position=self.joint_angles_left)
+        wrist_angle = float(np.clip(msg.orientation.z, -np.pi, np.pi))
+        self.joint_angles_left[8] = wrist_angle
+        self.left_gripper = msg.orientation.w
     
 
     def right_target_callback(self, msg):
         self.prev_joint_angles_right = self.joint_angles_right.copy()
+        self.joint_angles_right = np.clip(self.joint_angles_right, -2*np.pi, 2*np.pi)
         target = [msg.position.x, msg.position.y, msg.position.z]
         self.joint_angles_right = self.right_chain.inverse_kinematics(
             target, 
             target_orientation=[0, 0, 1],
             orientation_mode="Z",
             initial_position=self.joint_angles_right)
+        wrist_angle = float(np.clip(msg.orientation.z, -np.pi, np.pi))
+        self.joint_angles_right[8] = wrist_angle
+        self.right_gripper = msg.orientation.w  # right_target_callback
     
     def timer_callback(self):
 
@@ -90,6 +121,9 @@ class IKNode(Node):
         ee_right_position = self.right_chain.forward_kinematics(self.joint_angles_right)[:3, 3]
 
         distance = np.linalg.norm(ee_left_position - ee_right_position)
+
+        g_l = self.left_gripper
+        g_r = self.right_gripper
 
         if distance < 0.35:
             self.get_logger().warn('Collision avoidance triggered!')
@@ -99,8 +133,12 @@ class IKNode(Node):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = self.joint_names_left + self.joint_names_right
-        msg.position = list(self.joint_angles_left[3:9]) + [0.0, 0.0] + list(self.joint_angles_right[3:9]) + [0.0, 0.0]
+        msg.position = (list(self.joint_angles_left[3:9]) + 
+               [g_l, -g_l, g_l, -g_l, -g_l, g_l] +
+               list(self.joint_angles_right[3:9]) + 
+               [g_r, -g_r, g_r, -g_r, -g_r, g_r])
         self.publisher.publish(msg)
+       
 
 def main(args=None):
     rclpy.init(args=args)

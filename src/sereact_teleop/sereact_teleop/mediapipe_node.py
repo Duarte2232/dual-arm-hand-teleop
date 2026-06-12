@@ -57,15 +57,22 @@ class MediaPipeNode(Node):
                 wrist = hand_landmarks[0]
                 thumb_tip = hand_landmarks[4]
                 index_tip = hand_landmarks[8]
-                middle_mcp = hand_landmarks[9]
                 
                 # Pinch distance
                 pinch = np.sqrt((thumb_tip.x - index_tip.x)**2 + 
                                (thumb_tip.y - index_tip.y)**2)
                 
                 # Wrist rotation angle
-                angle = np.arctan2(middle_mcp.y - wrist.y, 
-                                  middle_mcp.x - wrist.x)
+                thumb_cmc = hand_landmarks[1]
+                pinky_mcp = hand_landmarks[17]
+
+                thumb_rel_x = thumb_cmc.x - wrist.x
+                thumb_rel_y = thumb_cmc.y - wrist.y
+                pinky_rel_x = pinky_mcp.x - wrist.x
+                pinky_rel_y = pinky_mcp.y - wrist.y
+
+                angle = np.arctan2(pinky_rel_y - thumb_rel_y, pinky_rel_x - thumb_rel_x)
+                self.get_logger().info(f'raw angle: {angle:.3f}')
                 
                 if is_left:
                     data[0] = wrist.x
@@ -90,7 +97,10 @@ class MediaPipeNode(Node):
         cv2.waitKey(1)
         
         for i in range(8):
-            self.filtered_data[i] = self.alpha * data[i] + (1 - self.alpha) * self.filtered_data[i]
+            if i in [3, 7]:
+                self.filtered_data[i] = 0.6 * data[i] + 0.4 * self.filtered_data[i] 
+            else:
+                self.filtered_data[i] = self.alpha * data[i] + (1 - self.alpha) * self.filtered_data[i]
 
         msg = Float32MultiArray()
         msg.data = self.filtered_data
