@@ -62,6 +62,9 @@ class IKNode(Node):
         t = self.get_clock().now().nanoseconds / 1e9
         target_left = [0.3 + 0.05 * np.sin(t), -0.5, 0.5]
         target_right = [0.3 + 0.05 * np.sin(t), 0.5, 0.5]
+
+        prev_left = self.joint_angles_left.copy()
+        prev_right = self.joint_angles_right.copy()
         
         self.joint_angles_left = self.left_chain.inverse_kinematics(
             target_left,
@@ -80,7 +83,8 @@ class IKNode(Node):
 
         if distance < 0.35:
             self.get_logger().warn('Collision avoidance triggered!')
-            return
+            self.joint_angles_left = prev_left
+            self.joint_angles_right = prev_right
         
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
