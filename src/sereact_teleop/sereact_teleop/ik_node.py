@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
+from geometry_msgs.msg import Pose
 import ikpy.chain
 import numpy as np
 import os
@@ -12,6 +13,9 @@ class IKNode(Node):
         
         # Publisher
         self.publisher = self.create_publisher(JointState, '/joint_states', 10)
+        self.create_subscription(Pose, '/left_arm/target_pose', self.left_target_callback, 10)
+        self.create_subscription(Pose, '/right_arm/target_pose', self.right_target_callback, 10)
+        
         
         # Load ikpy chain
         urdf_path = os.path.join(
@@ -49,32 +53,38 @@ class IKNode(Node):
             'right_robotiq_85_left_knuckle_joint',
             'right_robotiq_85_right_knuckle_joint'
         ]
+
         
-        # Timer — solve and publish at 50Hz
-        self.create_timer(0.05, self.timer_callback)
-        # In __init__, after loading the chain
         initial_target_left = [0.3, -0.5, 0.5]
         initial_target_right = [0.3, 0.5, 0.5]
         self.joint_angles_left = self.left_chain.inverse_kinematics(initial_target_left)
         self.joint_angles_right = self.right_chain.inverse_kinematics(initial_target_right)
+        self.prev_joint_angles_left = self.joint_angles_left.copy()
+        self.prev_joint_angles_right = self.joint_angles_right.copy()
+         # Timer — solve and publish at 50Hz
+        self.create_timer(0.05, self.timer_callback)
+
+
+    def left_target_callback(self, msg):
+        self.prev_joint_angles_left = self.joint_angles_left.copy()
+        target = [msg.position.x, msg.position.y, msg.position.z]
+        self.joint_angles_left = self.left_chain.inverse_kinematics(
+            target, 
+            target_orientation=[0, 0, -1],
+            orientation_mode="Y",
+            initial_position=self.joint_angles_left)
+    
+
+    def right_target_callback(self, msg):
+        self.prev_joint_angles_right = self.joint_angles_right.copy()
+        target = [msg.position.x, msg.position.y, msg.position.z]
+        self.joint_angles_right = self.right_chain.inverse_kinematics(
+            target, 
+            target_orientation=[0, 0, 1],
+            orientation_mode="Z",
+            initial_position=self.joint_angles_right)
     
     def timer_callback(self):
-        t = self.get_clock().now().nanoseconds / 1e9
-        target_left = [0.3 + 0.05 * np.sin(t), -0.5, 0.5]
-        target_right = [0.3 + 0.05 * np.sin(t), 0.5, 0.5]
-
-        prev_left = self.joint_angles_left.copy()
-        prev_right = self.joint_angles_right.copy()
-        
-        self.joint_angles_left = self.left_chain.inverse_kinematics(
-            target_left,
-            initial_position=self.joint_angles_left
-        )
-
-        self.joint_angles_right = self.right_chain.inverse_kinematics(
-            target_right,
-            initial_position=self.joint_angles_right
-        )
 
         ee_left_position = self.left_chain.forward_kinematics(self.joint_angles_left)[:3, 3]
         ee_right_position = self.right_chain.forward_kinematics(self.joint_angles_right)[:3, 3]
@@ -83,8 +93,8 @@ class IKNode(Node):
 
         if distance < 0.35:
             self.get_logger().warn('Collision avoidance triggered!')
-            self.joint_angles_left = prev_left
-            self.joint_angles_right = prev_right
+            self.joint_angles_left = self.prev_joint_angles_left
+            self.joint_angles_right = self.prev_joint_angles_right 
         
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
