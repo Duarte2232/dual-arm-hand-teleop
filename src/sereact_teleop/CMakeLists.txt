@@ -32,6 +32,8 @@ ament_python_install_package(sereact_teleop)
 
 install(PROGRAMS
   sereact_teleop/ik_node.py
+  sereact_teleop/teleop_node.py
+  sereact_teleop/mediapipe_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 ament_package()

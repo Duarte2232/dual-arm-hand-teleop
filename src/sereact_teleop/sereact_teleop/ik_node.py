@@ -1,9 +1,11 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose
 import ikpy.chain
 import numpy as np
+import time
 import os
 from ament_index_python.packages import get_package_share_directory
 
@@ -83,6 +85,9 @@ class IKNode(Node):
 
         self.left_gripper = 0.0
         self.right_gripper = 0.0
+
+        self.last_published_left = self.joint_angles_left.copy()
+        self.last_published_right = self.joint_angles_right.copy()  
          # Timer — solve and publish at 50Hz
         self.create_timer(0.05, self.timer_callback)
 
@@ -91,15 +96,18 @@ class IKNode(Node):
         self.prev_joint_angles_left = self.joint_angles_left.copy()
         self.joint_angles_left = np.clip(self.joint_angles_left, -2*np.pi, 2*np.pi)
         target = [msg.position.x, msg.position.y, msg.position.z]
+        
       
         self.joint_angles_left = self.left_chain.inverse_kinematics(
             target, 
             target_orientation=[0, 0, 1],
             orientation_mode="Z",
-            initial_position=self.joint_angles_left)
+            initial_position=self.joint_angles_left,
+            max_iter= 10)
         wrist_angle = float(np.clip(msg.orientation.z, -np.pi, np.pi))
         self.joint_angles_left[8] = wrist_angle
         self.left_gripper = msg.orientation.w
+       
     
 
     def right_target_callback(self, msg):
@@ -110,12 +118,31 @@ class IKNode(Node):
             target, 
             target_orientation=[0, 0, 1],
             orientation_mode="Z",
-            initial_position=self.joint_angles_right)
+            initial_position=self.joint_angles_right,
+            max_iter=10)
         wrist_angle = float(np.clip(msg.orientation.z, -np.pi, np.pi))
         self.joint_angles_right[8] = wrist_angle
         self.right_gripper = msg.orientation.w  # right_target_callback
     
     def timer_callback(self):
+        max_speed = 0.1  # radians per callback
+
+        self.joint_angles_left[3:9] = np.clip(
+            self.joint_angles_left[3:9],
+            self.last_published_left[3:9] - max_speed,
+            self.last_published_left[3:9] + max_speed
+        )
+        self.joint_angles_right[3:9] = np.clip(
+            self.joint_angles_right[3:9],
+            self.last_published_right[3:9] - max_speed,
+            self.last_published_right[3:9] + max_speed
+        )
+
+        # Update last published
+        self.last_published_left = self.joint_angles_left.copy()
+        self.last_published_right = self.joint_angles_right.copy()
+
+    
 
         ee_left_position = self.left_chain.forward_kinematics(self.joint_angles_left)[:3, 3]
         ee_right_position = self.right_chain.forward_kinematics(self.joint_angles_right)[:3, 3]
