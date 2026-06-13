@@ -47,59 +47,76 @@ class TeleopNode(Node):
         self.left_wrist_neutral = None
         self.right_wrist_neutral = None
 
+        self.prev_gripper_left  = 0.0
+        self.prev_gripper_right = 0.0
+
+        self.left_hand_present  = False
+        self.right_hand_present = False
+
     def hand_callback(self, msg):
         data = msg.data
         
         # Left hand
         lx, ly, l_pinch, l_angle = data[0], data[1], data[2], data[3]
-        # Right hand  
+        # Right hand
         rx, ry, r_pinch, r_angle = data[4], data[5], data[6], data[7]
+        # Dead-man switch: middle finger extended
+        left_active  = data[8] > 0.5
+        right_active = data[9] > 0.5
 
-        # Map pinch to gripper: 0.056=closed, 0.36=open
         pinch_min, pinch_max = 0.056, 0.36
-        gripper_left = 0.8 * (1.0 - ((l_pinch - pinch_min) / (pinch_max - pinch_min)))
-        gripper_left = float(np.clip(gripper_left, 0.0, 0.8))
-        
 
-        gripper_right = 0.8 * (1.0 - (r_pinch - pinch_min) / (pinch_max - pinch_min))
-        gripper_right = float(np.clip(gripper_right, 0.0, 0.8))
-    
+        left_detected  = lx != 0.0
+        right_detected = rx != 0.0
 
-        # Update left target if hand moved enough
-        if abs(lx - self.prev_left[0]) > self.deadzone or \
-           abs(ly - self.prev_left[1]) > self.deadzone:
-            self.left_target[1] = self.y_min_left +  lx* (self.y_max_left - self.y_min_left)
-            self.left_target[2] = self.z_max - ly * (self.z_max - self.z_min)
-            self.prev_left = [lx, ly]
-        
-        # Update right target if hand moved enough
-        if abs(rx - self.prev_right[0]) > self.deadzone or \
-           abs(ry - self.prev_right[1]) > self.deadzone:
-            self.right_target[1] = self.y_min_right + rx * (self.y_max_right- self.y_min_right)
-            self.right_target[2] = self.z_max - ry * (self.z_max - self.z_min)
-            self.prev_right = [rx, ry]
-        
-        # Angle deadzone
-
-        if abs(l_angle - self.prev_left_angle) < self.angle_deadzone:
-            l_angle = self.prev_left_angle
-        else:
-            self.prev_left_angle = l_angle
-
-        # Calibrate neutral on first detection
-        if self.left_wrist_neutral is None and lx != 0.0:
+        # Recalibrate wrist neutral each time a hand re-enters the frame
+        if left_detected and not self.left_hand_present:
             self.left_wrist_neutral = l_angle
-
-        if abs(r_angle - self.prev_right_angle) < self.angle_deadzone:
-            r_angle = self.prev_right_angle
-        else:
-            self.prev_right_angle = r_angle
-
-        # Calibrate neutral on first detection
-        if self.right_wrist_neutral is None and rx != 0.0:
+        if right_detected and not self.right_hand_present:
             self.right_wrist_neutral = r_angle
 
-        
+        self.left_hand_present  = left_detected
+        self.right_hand_present = right_detected
+
+        if left_active:
+            gripper_left = 0.8 * (1.0 - ((l_pinch - pinch_min) / (pinch_max - pinch_min)))
+            gripper_left = float(np.clip(gripper_left, 0.0, 0.8))
+
+            if abs(lx - self.prev_left[0]) > self.deadzone or \
+               abs(ly - self.prev_left[1]) > self.deadzone:
+                self.left_target[1] = self.y_min_left + lx * (self.y_max_left - self.y_min_left)
+                self.left_target[2] = self.z_max - ly * (self.z_max - self.z_min)
+                self.prev_left = [lx, ly]
+
+            if abs(l_angle - self.prev_left_angle) < self.angle_deadzone:
+                l_angle = self.prev_left_angle
+            else:
+                self.prev_left_angle = l_angle
+        else:
+            gripper_left = self.prev_gripper_left
+            l_angle = self.prev_left_angle
+
+        if right_active:
+            gripper_right = 0.8 * (1.0 - (r_pinch - pinch_min) / (pinch_max - pinch_min))
+            gripper_right = float(np.clip(gripper_right, 0.0, 0.8))
+
+            if abs(rx - self.prev_right[0]) > self.deadzone or \
+               abs(ry - self.prev_right[1]) > self.deadzone:
+                self.right_target[1] = self.y_min_right + rx * (self.y_max_right - self.y_min_right)
+                self.right_target[2] = self.z_max - ry * (self.z_max - self.z_min)
+                self.prev_right = [rx, ry]
+
+            if abs(r_angle - self.prev_right_angle) < self.angle_deadzone:
+                r_angle = self.prev_right_angle
+            else:
+                self.prev_right_angle = r_angle
+        else:
+            gripper_right = self.prev_gripper_right
+            r_angle = self.prev_right_angle
+
+        self.prev_gripper_left  = gripper_left
+        self.prev_gripper_right = gripper_right
+
         # Publish left target
         left_msg = Pose()
         left_msg.position.x = self.left_target[0]
@@ -107,12 +124,10 @@ class TeleopNode(Node):
         left_msg.position.z = self.left_target[2]
         if self.left_wrist_neutral is not None:
             left_msg.orientation.z = float(np.clip(
-                (l_angle - self.left_wrist_neutral)*2.0, -np.pi, np.pi))
+                (l_angle - self.left_wrist_neutral) * 2.0, -np.pi, np.pi))
         left_msg.orientation.w = gripper_left
-
         self.left_pub.publish(left_msg)
-        
-        
+
         # Publish right target
         right_msg = Pose()
         right_msg.position.x = self.right_target[0]
@@ -120,9 +135,8 @@ class TeleopNode(Node):
         right_msg.position.z = self.right_target[2]
         if self.right_wrist_neutral is not None:
             right_msg.orientation.z = float(np.clip(
-                (r_angle - self.right_wrist_neutral)*2.0, -np.pi, np.pi))
+                (r_angle - self.right_wrist_neutral) * 2.0, -np.pi, np.pi))
         right_msg.orientation.w = gripper_right
-
         self.right_pub.publish(right_msg)
 
 
