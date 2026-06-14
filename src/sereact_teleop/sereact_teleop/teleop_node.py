@@ -8,68 +8,61 @@ import numpy as np
 class TeleopNode(Node):
     def __init__(self):
         super().__init__('teleop_node')
-        
-        # Subscribers
+
         self.subscription = self.create_subscription(
             Float32MultiArray, '/hand_state', self.hand_callback, 10)
-        
-        # Publishers
-        self.left_pub = self.create_publisher(Pose, '/left_arm/target_pose', 10)
+
+        self.left_pub  = self.create_publisher(Pose, '/left_arm/target_pose', 10)
         self.right_pub = self.create_publisher(Pose, '/right_arm/target_pose', 10)
-        
-        # Workspace bounds
-        self.y_min_left, self.y_max_left = -0.5, 0.0
-        self.y_min_right, self.y_max_right = 0.0, 0.5
+
+        # workspace bounds in meters — left arm gets the left half, right arm the right half
+        self.y_min_left,  self.y_max_left  = -0.5, 0.0
+        self.y_min_right, self.y_max_right =  0.0, 0.5
         self.z_min, self.z_max = 0.1, 0.7
         self.left_x  = 0.4
         self.right_x = 0.4
 
-        
-
-        
-
-        
-        # Deadzone
-        self.deadzone = 0.01
+        # small deadzone to avoid sending commands from tiny hand tremors
+        self.deadzone       = 0.01
         self.angle_deadzone = 0.02
-        
-        # Previous hand positions for deadzone check
-        self.prev_left  = [0.5, 0.5]
-        self.prev_right = [0.5, 0.5]
-        self.prev_left_angle = 0.0
-        self.prev_right_angle = 0.0
-        
-        # Current targets
-        self.left_target  = [self.left_x, -0.5, 0.4]
-        self.right_target = [self.right_x,  0.5, 0.4]
 
-        
-        self.left_wrist_neutral = None
+        self.prev_left        = [0.5, 0.5]
+        self.prev_right       = [0.5, 0.5]
+        self.prev_left_angle  = 0.0
+        self.prev_right_angle = 0.0
+
+        self.left_target  = [self.left_x,  -0.5, 0.4]
+        self.right_target = [self.right_x,   0.5, 0.4]
+
+        # wrist neutral is set the first time each hand enters the frame
+        # so the operator's natural resting angle maps to zero rotation
+        self.left_wrist_neutral  = None
         self.right_wrist_neutral = None
 
         self.prev_gripper_left  = 0.0
         self.prev_gripper_right = 0.0
 
+        # track whether each hand was visible last frame so we can detect re-entry
         self.left_hand_present  = False
         self.right_hand_present = False
 
     def hand_callback(self, msg):
         data = msg.data
-        
-        # Left hand
+
+        # hand_state layout: [lx, ly, l_pinch, l_angle, rx, ry, r_pinch, r_angle, l_active, r_active]
         lx, ly, l_pinch, l_angle = data[0], data[1], data[2], data[3]
-        # Right hand
         rx, ry, r_pinch, r_angle = data[4], data[5], data[6], data[7]
-        # Dead-man switch: middle finger extended
         left_active  = data[8] > 0.5
         right_active = data[9] > 0.5
 
+        # pinch range calibrated experimentally: fully open ~0.36, fully closed ~0.056
         pinch_min, pinch_max = 0.056, 0.36
 
         left_detected  = lx != 0.0
         right_detected = rx != 0.0
 
-        # Recalibrate wrist neutral each time a hand re-enters the frame
+        # recalibrate wrist neutral each time a hand comes back into frame
+        # so sudden angle jumps don't cause the gripper to spin on re-entry
         if left_detected and not self.left_hand_present:
             self.left_wrist_neutral = l_angle
         if right_detected and not self.right_hand_present:
@@ -93,8 +86,9 @@ class TeleopNode(Node):
             else:
                 self.prev_left_angle = l_angle
         else:
+            # dead-man switch active — freeze everything until hand opens again
             gripper_left = self.prev_gripper_left
-            l_angle = self.prev_left_angle
+            l_angle      = self.prev_left_angle
 
         if right_active:
             gripper_right = 0.8 * (1.0 - (r_pinch - pinch_min) / (pinch_max - pinch_min))
@@ -112,12 +106,13 @@ class TeleopNode(Node):
                 self.prev_right_angle = r_angle
         else:
             gripper_right = self.prev_gripper_right
-            r_angle = self.prev_right_angle
+            r_angle       = self.prev_right_angle
 
         self.prev_gripper_left  = gripper_left
         self.prev_gripper_right = gripper_right
 
-        # Only publish when active — prevents IK from re-solving with home bias and drifting
+        # only publish when the arm is active — if we publish while inactive the IK keeps
+        # re-solving with a home-angle bias and the arm slowly drifts back to its home position
         if left_active:
             left_msg = Pose()
             left_msg.position.x = self.left_target[0]
