@@ -42,7 +42,7 @@ class MediaPipeNode(Node):
         self.landmarker = HandLandmarker.create_from_options(options)
 
         self.filtered_data = [0.0] * 10  # 8 hand values + 2 active flags
-        self.alpha = 0.35
+        self.alpha = 0.5
         self._lock = threading.Lock()
         self.collision_active = False
         self._frame = None

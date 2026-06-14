@@ -117,27 +117,28 @@ class TeleopNode(Node):
         self.prev_gripper_left  = gripper_left
         self.prev_gripper_right = gripper_right
 
-        # Publish left target
-        left_msg = Pose()
-        left_msg.position.x = self.left_target[0]
-        left_msg.position.y = self.left_target[1]
-        left_msg.position.z = self.left_target[2]
-        if self.left_wrist_neutral is not None:
-            left_msg.orientation.z = float(np.clip(
-                (l_angle - self.left_wrist_neutral) * 2.0, -np.pi, np.pi))
-        left_msg.orientation.w = gripper_left
-        self.left_pub.publish(left_msg)
+        # Only publish when active — prevents IK from re-solving with home bias and drifting
+        if left_active:
+            left_msg = Pose()
+            left_msg.position.x = self.left_target[0]
+            left_msg.position.y = self.left_target[1]
+            left_msg.position.z = self.left_target[2]
+            if self.left_wrist_neutral is not None:
+                left_msg.orientation.z = float(np.clip(
+                    (l_angle - self.left_wrist_neutral) * 2.0, -np.pi, np.pi))
+            left_msg.orientation.w = gripper_left
+            self.left_pub.publish(left_msg)
 
-        # Publish right target
-        right_msg = Pose()
-        right_msg.position.x = self.right_target[0]
-        right_msg.position.y = self.right_target[1]
-        right_msg.position.z = self.right_target[2]
-        if self.right_wrist_neutral is not None:
-            right_msg.orientation.z = float(np.clip(
-                (r_angle - self.right_wrist_neutral) * 2.0, -np.pi, np.pi))
-        right_msg.orientation.w = gripper_right
-        self.right_pub.publish(right_msg)
+        if right_active:
+            right_msg = Pose()
+            right_msg.position.x = self.right_target[0]
+            right_msg.position.y = self.right_target[1]
+            right_msg.position.z = self.right_target[2]
+            if self.right_wrist_neutral is not None:
+                right_msg.orientation.z = float(np.clip(
+                    (r_angle - self.right_wrist_neutral) * 2.0, -np.pi, np.pi))
+            right_msg.orientation.w = gripper_right
+            self.right_pub.publish(right_msg)
 
 
 def main(args=None):

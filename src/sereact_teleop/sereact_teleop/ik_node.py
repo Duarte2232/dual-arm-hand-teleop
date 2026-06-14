@@ -140,7 +140,7 @@ class IKNode(Node):
         if self.startup_ticks > 0:
             self.startup_ticks -= 1
         else:
-            max_speed = 0.05  # radians per callback
+            max_speed = 0.12  # radians per callback
             self.joint_angles_left[3:9] = np.clip(
                 self.joint_angles_left[3:9],
                 self.last_published_left[3:9] - max_speed,
