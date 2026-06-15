@@ -27,25 +27,11 @@ sudo apt install ros-humble-ur-description ros-humble-robot-state-publisher \
 pip install mediapipe ikpy opencv-python numpy
 ```
 
-The `hand_landmarker.task` model file must be placed at:
-```
-config/hand_landmarker.task
-```
-Download from: https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker
-
 ## Build
-
-If `urdf/dual_arm.urdf` is not present, generate it from the xacro first:
 
 ```bash
 cd ~/sereact_ws
-xacro src/sereact_teleop/urdf/dual_arm.urdf.xacro > src/sereact_teleop/urdf/dual_arm.urdf
-```
-
-Then build:
-
-```bash
-colcon build 
+colcon build
 source install/setup.bash
 ```
 
@@ -79,13 +65,13 @@ Left hand controls the left arm, right hand controls the right arm.
 
 ```
 mediapipe_node  →  /hand_state (Float32MultiArray, 10 values)
-                         ↓
+                         
 teleop_node     →  /left_arm/target_pose  (geometry_msgs/Pose)
                 →  /right_arm/target_pose (geometry_msgs/Pose)
-                         ↓
+                         
 ik_node         →  /joint_states (sensor_msgs/JointState)
                 →  /collision_state (std_msgs/Bool)
-                         ↓
+                         
 robot_state_publisher → RViz
 ```
 
