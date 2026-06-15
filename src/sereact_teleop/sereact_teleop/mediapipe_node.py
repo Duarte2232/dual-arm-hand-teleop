@@ -101,7 +101,7 @@ class MediaPipeNode(Node):
                     dx = w[12].x - w[9].x
                     dy = w[12].y - w[9].y
                     dz = w[12].z - w[9].z
-                    active = 1.0 if np.sqrt(dx*dx + dy*dy + dz*dz) > 0.05 else 0.0
+                    active = 1.0 if np.sqrt(dx*dx + dy*dy + dz*dz) > 0.06 else 0.0
 
                     if is_left:
                         data[0] = wrist.x
