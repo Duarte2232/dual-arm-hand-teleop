@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(sereact_teleop)
+project(dual_arm_hand_teleop)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -28,12 +28,12 @@ install(DIRECTORY urdf launch config
 )
 find_package(ament_cmake_python REQUIRED)
 
-ament_python_install_package(sereact_teleop)
+ament_python_install_package(dual_arm_hand_teleop)
 
 install(PROGRAMS
-  sereact_teleop/ik_node.py
-  sereact_teleop/teleop_node.py
-  sereact_teleop/mediapipe_node.py
+  dual_arm_hand_teleop/ik_node.py
+  dual_arm_hand_teleop/teleop_node.py
+  dual_arm_hand_teleop/mediapipe_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 ament_package()

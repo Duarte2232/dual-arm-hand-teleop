@@ -28,7 +28,7 @@ class MediaPipeNode(Node):
         VisionRunningMode = mp.tasks.vision.RunningMode
 
         model_path = os.path.join(
-            get_package_share_directory('sereact_teleop'),
+            get_package_share_directory('dual_arm_hand_teleop'),
             'config', 'hand_landmarker.task'
         )
         options = HandLandmarkerOptions(
@@ -96,7 +96,7 @@ class MediaPipeNode(Node):
                     angle = np.arctan2(pinky_rel_y - thumb_rel_y, pinky_rel_x - thumb_rel_x)
 
                     # dead-man switch using 3D world landmarks — rotation-invariant
-                    # middle finger tip (12) to middle finger MCP (9) distance > 5cm = finger extended
+                    # middle finger tip (12) to middle finger MCP (9) distance > 6cm = finger extended
                     w = results.hand_world_landmarks[i]
                     dx = w[12].x - w[9].x
                     dy = w[12].y - w[9].y

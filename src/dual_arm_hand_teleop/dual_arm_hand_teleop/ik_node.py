@@ -19,7 +19,7 @@ class IKNode(Node):
         self.create_subscription(Pose, '/right_arm/target_pose', self.right_target_callback, 10)
 
         urdf_path = os.path.join(
-            get_package_share_directory('sereact_teleop'),
+            get_package_share_directory('dual_arm_hand_teleop'),
             'urdf', 'dual_arm.urdf'
         )
 

@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>sereact_teleop</name>
+  <name>dual_arm_hand_teleop</name>
   <version>0.0.0</version>
   <description>Dual-arm teleoperation using MediaPipe hand tracking to control two UR5e arms with Robotiq 2F-85 grippers in RViz.</description>
-  <maintainer email="duarte09.fernandes@gmail.com">duarte</maintainer>
+  <maintainer email="148897184+Duarte2232@users.noreply.github.com">Duarte Fernandes</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

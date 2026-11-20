@@ -4,3 +4,6 @@ log/
 src/build/
 src/install/
 src/log/
+
+__pycache__/
+*.pyc
